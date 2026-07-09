@@ -51,7 +51,8 @@ export const documentsRouter = router({
         title: z.string().min(1, "Title is required"),
         description: z.string().optional(),
         content: z.string().min(1, "Content is required"),
-        projectCategory: z.string().min(1, "Project category is required"),
+        projectCategory: z.string().min(1, "Project category is required").optional(),
+        groupId: z.number().optional(),
         locales: z
           .array(
             z.object({
@@ -64,11 +65,26 @@ export const documentsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      let projectCategory = input.projectCategory ?? "";
+      let groupId = input.groupId;
+
+      if (groupId) {
+        const { getDocumentGroupById } = await import("../db");
+        const group = await getDocumentGroupById(groupId);
+        if (!group) throw new Error("Document group not found");
+        projectCategory = group.name;
+      }
+
+      if (!projectCategory) {
+        throw new Error("Project category or group is required");
+      }
+
       const result = await createDocument({
         title: input.title,
         description: input.description,
         content: input.content,
-        projectCategory: input.projectCategory,
+        projectCategory,
+        groupId: groupId ?? null,
         createdBy: ctx.user.id,
         updatedBy: ctx.user.id,
       });
@@ -117,6 +133,7 @@ export const documentsRouter = router({
     .input(
       z.object({
         projectCategory: z.string().optional(),
+        groupId: z.number().optional(),
         limit: z.number().optional().default(20),
         offset: z.number().optional().default(0),
       })
@@ -125,6 +142,7 @@ export const documentsRouter = router({
       try {
         return await listDocuments({
           projectCategory: input.projectCategory,
+          groupId: input.groupId,
           limit: input.limit,
           offset: input.offset,
         });
@@ -142,6 +160,7 @@ export const documentsRouter = router({
         description: z.string().optional(),
         content: z.string().optional(),
         projectCategory: z.string().optional(),
+        groupId: z.number().optional(),
         locales: z
           .array(
             z.object({
@@ -154,24 +173,50 @@ export const documentsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, locales, ...updateData } = input;
+      const { id, locales, groupId, ...updateData } = input;
 
       const currentDoc = await getDocumentById(id);
       if (!currentDoc) throw new Error("Document not found");
+
+      let projectCategory = updateData.projectCategory;
+      if (groupId !== undefined) {
+        const { getDocumentGroupById } = await import("../db");
+        const group = await getDocumentGroupById(groupId);
+        if (!group) throw new Error("Document group not found");
+        projectCategory = group.name;
+      }
 
       const hasContentChange = input.content && input.content !== currentDoc.content;
       const hasTitleChange = input.title && input.title !== currentDoc.title;
       const hasDescriptionChange =
         input.description !== undefined && input.description !== currentDoc.description;
       const hasCategoryChange =
-        input.projectCategory && input.projectCategory !== currentDoc.projectCategory;
+        projectCategory !== undefined && projectCategory !== currentDoc.projectCategory;
+      const hasGroupChange = groupId !== undefined && groupId !== currentDoc.groupId;
 
-      if (hasContentChange || hasTitleChange || hasDescriptionChange || hasCategoryChange) {
+      let localeChanged = false;
+      if (locales?.length) {
+        const currentLocales = await getDocumentLocales(id);
+        localeChanged = locales.some((l) => {
+          const cur = currentLocales.find((c) => c.locale === l.locale);
+          return !cur || cur.content !== l.content || cur.title !== l.title;
+        });
+      }
+
+      if (
+        hasContentChange ||
+        hasTitleChange ||
+        hasDescriptionChange ||
+        hasCategoryChange ||
+        hasGroupChange ||
+        localeChanged
+      ) {
         const changes: string[] = [];
         if (hasContentChange) changes.push("content");
         if (hasTitleChange) changes.push("title");
         if (hasDescriptionChange) changes.push("description");
-        if (hasCategoryChange) changes.push("category");
+        if (hasCategoryChange || hasGroupChange) changes.push("category");
+        if (localeChanged) changes.push("locales");
 
         await createRevision({
           documentId: id,
@@ -184,6 +229,8 @@ export const documentsRouter = router({
 
       await updateDocument(id, {
         ...updateData,
+        ...(projectCategory !== undefined ? { projectCategory } : {}),
+        ...(groupId !== undefined ? { groupId } : {}),
         updatedBy: ctx.user.id,
       });
 

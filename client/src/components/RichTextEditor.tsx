@@ -1,5 +1,4 @@
 import { useEditor, EditorContent } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -17,9 +16,12 @@ import {
   Paperclip,
   MessageSquarePlus,
   NotebookPen,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { CommentHighlight } from "./CommentHighlight";
 import { FootnoteReference } from "./FootnoteReference";
@@ -103,6 +105,7 @@ export default function RichTextEditor({
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isPostingFootnote, setIsPostingFootnote] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [showFootnotesPanel, setShowFootnotesPanel] = useState(false);
   const appliedCommentsRef = useRef<Set<number>>(new Set());
 
   const editor = useEditor({
@@ -162,6 +165,10 @@ export default function RichTextEditor({
   }, [comments, editor, readOnly]);
 
   useEffect(() => {
+    if (activeNoteId != null) setShowFootnotesPanel(true);
+  }, [activeNoteId]);
+
+  useEffect(() => {
     if (!editor) return;
 
     const handleClick = (event: MouseEvent) => {
@@ -176,7 +183,10 @@ export default function RichTextEditor({
       const footnote = target.closest("[data-footnote-ref]");
       if (footnote && onNoteClick) {
         const id = Number(footnote.getAttribute("data-note-id"));
-        if (!Number.isNaN(id)) onNoteClick(id);
+        if (!Number.isNaN(id)) {
+          setShowFootnotesPanel(true);
+          onNoteClick(id);
+        }
       }
     };
 
@@ -341,7 +351,7 @@ export default function RichTextEditor({
 
   return (
     <div className={containerClass}>
-      <div className="bg-secondary border-b border-border p-2 flex flex-wrap gap-0.5 shrink-0">
+      <div className="bg-secondary border-b border-border px-1.5 py-1 flex flex-wrap items-center gap-0.5 shrink-0">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
@@ -405,26 +415,98 @@ export default function RichTextEditor({
           title="Upload PDF or PPT"
         />
         {onAddInlineComment && (
-          <ToolbarButton
-            onClick={() => {
-              setShowFootnoteForm(false);
-              setShowCommentForm((v) => !v);
+          <Popover
+            open={showCommentForm}
+            onOpenChange={(open) => {
+              setShowCommentForm(open);
+              if (open) setShowFootnoteForm(false);
             }}
-            isActive={showCommentForm}
-            icon={<MessageSquarePlus className="w-3.5 h-3.5" />}
-            title="Comment on selection"
-          />
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={`p-1.5 rounded-sm transition-colors ${
+                  showCommentForm
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-background text-foreground"
+                }`}
+                title="Comment on selection"
+              >
+                <MessageSquarePlus className="w-3.5 h-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3" align="start" side="bottom">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Comment on selected text
+              </p>
+              <Textarea
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                placeholder="Write your comment..."
+                className="min-h-14 text-sm"
+              />
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  onClick={submitInlineComment}
+                  disabled={
+                    !commentDraft.trim() || isPostingComment || editor.state.selection.empty
+                  }
+                >
+                  {isPostingComment ? "Posting..." : "Post"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowCommentForm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
         {onAddNote && (
-          <ToolbarButton
-            onClick={() => {
-              setShowCommentForm(false);
-              setShowFootnoteForm((v) => !v);
+          <Popover
+            open={showFootnoteForm}
+            onOpenChange={(open) => {
+              setShowFootnoteForm(open);
+              if (open) setShowCommentForm(false);
             }}
-            isActive={showFootnoteForm}
-            icon={<NotebookPen className="w-3.5 h-3.5 text-amber-500" />}
-            title="Insert footnote at cursor"
-          />
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={`p-1.5 rounded-sm transition-colors ${
+                  showFootnoteForm
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-background text-foreground"
+                }`}
+                title="Insert footnote at cursor"
+              >
+                <NotebookPen className="w-3.5 h-3.5 text-amber-500" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3" align="start" side="bottom">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Footnote at cursor (like Word)
+              </p>
+              <Textarea
+                value={footnoteDraft}
+                onChange={(e) => setFootnoteDraft(e.target.value)}
+                placeholder="Footnote content..."
+                className="min-h-14 text-sm"
+              />
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  onClick={submitFootnote}
+                  disabled={!footnoteDraft.trim() || isPostingFootnote}
+                >
+                  {isPostingFootnote ? "Adding..." : "Insert footnote"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowFootnoteForm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
         <input
           ref={imageInputRef}
@@ -443,102 +525,8 @@ export default function RichTextEditor({
       </div>
 
       {isUploadingFile && (
-        <div className="border-b border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shrink-0">
+        <div className="border-b border-border bg-card px-3 py-1 text-xs text-muted-foreground shrink-0">
           Uploading document...
-        </div>
-      )}
-
-      {editor && onAddInlineComment && (
-        <BubbleMenu
-          editor={editor}
-          shouldShow={({ editor: ed }: { editor: typeof editor }) => !ed.state.selection.empty}
-        >
-          <div className="flex gap-1 bg-background border border-border rounded-sm shadow-md p-1">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1 h-8"
-              onClick={() => {
-                setShowFootnoteForm(false);
-                setShowCommentForm(true);
-              }}
-            >
-              <MessageSquarePlus className="w-3.5 h-3.5" />
-              Comment
-            </Button>
-          </div>
-        </BubbleMenu>
-      )}
-
-      {editor && onAddNote && (
-        <BubbleMenu
-          editor={editor}
-          shouldShow={({ editor: ed }: { editor: typeof editor }) => ed.state.selection.empty}
-        >
-          <div className="flex gap-1 bg-background border border-border rounded-sm shadow-md p-1">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1 h-8"
-              onClick={() => {
-                setShowCommentForm(false);
-                setShowFootnoteForm(true);
-              }}
-            >
-              <NotebookPen className="w-3.5 h-3.5 text-amber-500" />
-              Footnote
-            </Button>
-          </div>
-        </BubbleMenu>
-      )}
-
-      {showCommentForm && onAddInlineComment && (
-        <div className="border-b border-border bg-card p-2 space-y-2 shrink-0">
-          <p className="text-xs font-medium text-muted-foreground">Comment on selected text</p>
-          <Textarea
-            value={commentDraft}
-            onChange={(e) => setCommentDraft(e.target.value)}
-            placeholder="Write your comment..."
-            className="min-h-14 text-sm"
-          />
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={submitInlineComment}
-              disabled={!commentDraft.trim() || isPostingComment || editor.state.selection.empty}
-            >
-              {isPostingComment ? "Posting..." : "Post"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowCommentForm(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {showFootnoteForm && onAddNote && (
-        <div className="border-b border-border bg-card p-2 space-y-2 shrink-0">
-          <p className="text-xs font-medium text-muted-foreground">
-            Footnote at cursor (like Word)
-          </p>
-          <Textarea
-            value={footnoteDraft}
-            onChange={(e) => setFootnoteDraft(e.target.value)}
-            placeholder="Footnote content..."
-            className="min-h-14 text-sm"
-          />
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={submitFootnote}
-              disabled={!footnoteDraft.trim() || isPostingFootnote}
-            >
-              {isPostingFootnote ? "Adding..." : "Insert footnote"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowFootnoteForm(false)}>
-              Cancel
-            </Button>
-          </div>
         </div>
       )}
 
@@ -575,34 +563,48 @@ export default function RichTextEditor({
       </div>
 
       {notes.length > 0 && (
-        <div className="footnotes-panel border-t border-border bg-secondary/20 shrink-0 max-h-28 overflow-y-auto p-2 space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Footnotes
-          </p>
-          {notes.map((note) => (
-            <div
-              key={note.id}
-              id={`footnote-${note.id}`}
-              className={`text-xs flex gap-2 p-1.5 rounded-sm items-start ${
-                activeNoteId === note.id ? "bg-accent/10 border border-accent" : ""
-              }`}
-            >
-              <span className="footnote-notebook-icon shrink-0 mt-0.5" aria-hidden />
-              {onUpdateNote ? (
-                <input
-                  className="flex-1 bg-transparent border-b border-border/50 outline-none text-xs"
-                  defaultValue={note.content}
-                  onBlur={(e) => {
-                    if (e.target.value !== note.content) {
-                      onUpdateNote(note.id, e.target.value);
-                    }
-                  }}
-                />
-              ) : (
-                <span className="flex-1">{note.content}</span>
-              )}
+        <div className="footnotes-panel border-t border-border bg-secondary/20 shrink-0">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:bg-secondary/40"
+            onClick={() => setShowFootnotesPanel((v) => !v)}
+          >
+            <span>Footnotes ({notes.length})</span>
+            {showFootnotesPanel ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronUp className="w-3.5 h-3.5" />
+            )}
+          </button>
+          {showFootnotesPanel && (
+            <div className="max-h-28 overflow-y-auto p-2 pt-0 space-y-1">
+              {notes.map((note) => (
+                <div
+                  key={note.id}
+                  id={`footnote-${note.id}`}
+                  className={`text-xs flex gap-2 p-1.5 rounded-sm items-start ${
+                    activeNoteId === note.id ? "bg-accent/10 border border-accent" : ""
+                  }`}
+                >
+                  <span className="file-note-number shrink-0">{note.noteNumber}</span>
+                  <span className="footnote-notebook-icon shrink-0 mt-0.5" aria-hidden />
+                  {onUpdateNote ? (
+                    <input
+                      className="flex-1 bg-transparent border-b border-border/50 outline-none text-xs"
+                      defaultValue={note.content}
+                      onBlur={(e) => {
+                        if (e.target.value !== note.content) {
+                          onUpdateNote(note.id, e.target.value);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="flex-1">{note.content}</span>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

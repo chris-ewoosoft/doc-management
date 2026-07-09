@@ -1,18 +1,15 @@
 import { useState, type ReactNode } from "react";
-import { NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { EditorFileNote } from "@/lib/documentLocales";
 import FileNoteMarkers from "./FileNoteMarkers";
-import FileNotesList from "./FileNotesList";
 
 interface FileOverlayAnnotatorProps {
   embeddedId: string;
   fileName: string;
   pageLabel?: "Page" | "Slide";
   notes: EditorFileNote[];
-  annotateMode: boolean;
   activeNoteId: number | null;
   onNoteClick: (id: number) => void;
   onDismiss?: () => void;
@@ -26,12 +23,20 @@ interface FileOverlayAnnotatorProps {
   children: ReactNode | ((pageNumber: number) => ReactNode);
 }
 
+function positionFromEvent(event: React.MouseEvent<HTMLElement>, pageNumber: number) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return {
+    pageNumber,
+    xPercent: ((event.clientX - rect.left) / rect.width) * 100,
+    yPercent: ((event.clientY - rect.top) / rect.height) * 100,
+  };
+}
+
 export default function FileOverlayAnnotator({
   embeddedId,
   fileName,
   pageLabel = "Page",
   notes,
-  annotateMode,
   activeNoteId,
   onNoteClick,
   onDismiss,
@@ -54,13 +59,17 @@ export default function FileOverlayAnnotator({
 
   const viewer = typeof children === "function" ? children(pageNumber) : children;
 
-  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!annotateMode || pending) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const xPercent = ((event.clientX - rect.left) / rect.width) * 100;
-    const yPercent = ((event.clientY - rect.top) / rect.height) * 100;
-    setPending({ pageNumber, xPercent, yPercent });
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (pending) return;
+    onDismiss?.();
+    setPending(positionFromEvent(event, pageNumber));
     setDraft("");
+  };
+
+  const handleOverlayClick = () => {
+    if (pending) return;
+    onDismiss?.();
   };
 
   const submitNote = async () => {
@@ -80,25 +89,6 @@ export default function FileOverlayAnnotator({
     }
   };
 
-  const showMarkerLayer = annotateMode || pageNotes.length > 0;
-
-  const handleListNoteClick = (note: EditorFileNote) => {
-    if (activeNoteId === note.id) {
-      onDismiss?.();
-      return;
-    }
-    setPageNumber(note.pageNumber);
-    onNoteClick(note.id);
-  };
-
-  const handleMarkerClick = (id: number) => {
-    if (activeNoteId === id) {
-      onDismiss?.();
-      return;
-    }
-    onNoteClick(id);
-  };
-
   return (
     <div className="embedded-file-viewer">
       <div className="embedded-file-toolbar">
@@ -112,48 +102,39 @@ export default function FileOverlayAnnotator({
             className="h-7 w-16 text-xs"
           />
         </div>
-        {annotateMode ? (
-          <span className="text-[11px] text-amber-700 font-medium flex items-center gap-1">
-            <NotebookPen className="w-3.5 h-3.5" />
-            Click on {pageLabel.toLowerCase()} to place note #{nextNoteNumber}
-          </span>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">Native viewer — best text quality</span>
-        )}
+        <span className="text-[11px] text-muted-foreground">
+          Right-click to add note · Left-click marker to view/edit
+        </span>
       </div>
 
       <div className="embedded-file-overlay-host">
         <div className="embedded-file-overlay-content">{viewer}</div>
-        {showMarkerLayer && (
-          <div
-            className={`embedded-file-overlay-layer ${annotateMode ? "" : "pointer-events-none"}`}
-            onClick={annotateMode ? handleOverlayClick : undefined}
-          >
-            <FileNoteMarkers
-              notes={pageNotes}
-              activeNoteId={activeNoteId}
-              pageLabel={pageLabel}
-              onNoteClick={handleMarkerClick}
-              onDismiss={onDismiss}
-              pending={
-                pending
-                  ? { ...pending, noteNumber: nextNoteNumber }
-                  : null
-              }
-            />
-          </div>
-        )}
+        <div
+          className="embedded-file-overlay-layer pdf-annotate-overlay"
+          onContextMenu={handleContextMenu}
+          onClick={handleOverlayClick}
+        >
+          <FileNoteMarkers
+            notes={pageNotes}
+            activeNoteId={activeNoteId}
+            pageLabel={pageLabel}
+            onNoteClick={onNoteClick}
+            onDismiss={onDismiss}
+            onUpdateNote={onUpdateNote}
+            pending={pending ? { ...pending, noteNumber: nextNoteNumber } : null}
+          />
+        </div>
       </div>
 
       {pending && (
         <div className="embedded-file-note-form">
           <p className="text-xs font-medium text-muted-foreground">
-            Note #{nextNoteNumber} on {fileName} — {pageLabel.toLowerCase()} {pending.pageNumber}
+            New note #{nextNoteNumber} on {fileName} — {pageLabel.toLowerCase()} {pending.pageNumber}
           </p>
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Write note..."
+            placeholder="Write note content..."
             className="min-h-14 text-sm"
             autoFocus
           />
@@ -161,21 +142,20 @@ export default function FileOverlayAnnotator({
             <Button size="sm" onClick={submitNote} disabled={!draft.trim() || isSaving}>
               {isSaving ? "Saving..." : "Add note"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setPending(null);
+                setDraft("");
+              }}
+            >
               Cancel
             </Button>
           </div>
         </div>
       )}
 
-      <FileNotesList
-        notes={fileNotes}
-        activeNoteId={activeNoteId}
-        pageLabel={pageLabel}
-        onNoteClick={handleListNoteClick}
-        onDismiss={onDismiss}
-        onUpdateNote={onUpdateNote}
-      />
     </div>
   );
 }

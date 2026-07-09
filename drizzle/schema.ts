@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  passwordHash: varchar("passwordHash", { length: 255 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: userRoleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
@@ -34,12 +35,28 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const documentGroups = pgTable("documentGroups", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  description: text("description"),
+  sortOrder: integer("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+export type DocumentGroup = typeof documentGroups.$inferSelect;
+export type InsertDocumentGroup = typeof documentGroups.$inferInsert;
+
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   content: text("content").notNull(),
   projectCategory: varchar("projectCategory", { length: 255 }).notNull(),
+  groupId: integer("groupId").references(() => documentGroups.id),
   createdBy: integer("createdBy")
     .notNull()
     .references(() => users.id),

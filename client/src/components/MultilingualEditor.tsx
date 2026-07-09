@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import RichTextEditor, { type FileUploadResult } from "@/components/RichTextEditor";
@@ -35,6 +35,7 @@ interface MultilingualEditorProps {
   onUpdateNote?: (noteId: number, content: string) => Promise<void>;
   fileAnnotationBase?: FileAnnotationBase;
   fileNotes?: EditorFileNote[];
+  compact?: boolean;
 }
 
 function getScrollRatio(element: HTMLDivElement) {
@@ -63,6 +64,7 @@ export default function MultilingualEditor({
   onUpdateNote,
   fileAnnotationBase,
   fileNotes = [],
+  compact = false,
 }: MultilingualEditorProps) {
   const [visibleLocales, setVisibleLocales] = useState<Record<DocumentLocaleCode, boolean>>({
     en: true,
@@ -74,6 +76,15 @@ export default function MultilingualEditor({
     () => DOCUMENT_LOCALES.filter(({ code }) => visibleLocales[code]),
     [visibleLocales]
   );
+
+  const layoutKey = activeLocales.map(({ code }) => code).join("-");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [layoutKey]);
 
   const scrollContainers = useRef<Map<DocumentLocaleCode, HTMLDivElement | null>>(new Map());
   const isSyncingScroll = useRef(false);
@@ -121,8 +132,8 @@ export default function MultilingualEditor({
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full gap-2">
-      <div className="flex flex-wrap items-center gap-2 shrink-0 px-1">
+    <div className={`flex flex-col flex-1 min-h-0 h-full ${compact ? "gap-0" : "gap-2"}`}>
+      <div className="editor-locale-bar shrink-0">
         <span className="text-xs text-muted-foreground mr-1">Languages:</span>
         {DOCUMENT_LOCALES.map(({ code, label, flag }) => {
           const isOn = visibleLocales[code];
@@ -133,37 +144,50 @@ export default function MultilingualEditor({
               type="button"
               size="sm"
               variant={isOn ? "default" : "outline"}
-              className="h-7 px-2.5 text-xs gap-1.5"
+              className={`${compact ? "h-6 px-2 text-[10px]" : "h-7 px-2.5 text-xs"} gap-1.5`}
               disabled={isLastVisible}
               title={isLastVisible ? "At least one language must stay visible" : undefined}
               onClick={() => toggleLocale(code)}
             >
               <span className="font-bold">{flag}</span>
-              {label}
+              {!compact && label}
             </Button>
           );
         })}
       </div>
 
       <div
-        className="grid gap-2 flex-1 min-h-0 h-full"
+        key={layoutKey}
+        className={`grid flex-1 min-h-0 h-full w-full ${compact ? "gap-1" : "gap-2"}`}
         style={{ gridTemplateColumns: `repeat(${activeLocales.length}, minmax(0, 1fr))` }}
       >
         {activeLocales.map(({ code, label, flag }) => (
-          <div key={code} className="flex flex-col min-h-0 min-w-0 h-full gap-2">
-            <div className="flex items-center gap-2 shrink-0 px-1">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-sm bg-accent text-accent-foreground text-xs font-bold">
-                {flag}
-              </span>
-              <span className="text-sm font-semibold truncate">{label}</span>
-            </div>
+          <div key={code} className={`flex flex-col min-h-0 min-w-0 h-full ${compact ? "gap-0" : "gap-2"}`}>
+            {!compact && (
+              <>
+                <div className="flex items-center gap-2 shrink-0 px-1">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-sm bg-accent text-accent-foreground text-xs font-bold">
+                    {flag}
+                  </span>
+                  <span className="text-sm font-semibold truncate">{label}</span>
+                </div>
 
-            <Input
-              value={locales[code].title}
-              onChange={(e) => onLocaleChange(code, "title", e.target.value)}
-              placeholder={`Title (${flag})...`}
-              className="font-medium shrink-0 h-9"
-            />
+                <Input
+                  value={locales[code].title}
+                  onChange={(e) => onLocaleChange(code, "title", e.target.value)}
+                  placeholder={`Title (${flag})...`}
+                  className="font-medium shrink-0 h-9"
+                />
+              </>
+            )}
+
+            {compact && (
+              <div className="flex items-center gap-1 shrink-0 px-1 py-0.5 bg-secondary/50 border-b border-border">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-sm bg-accent text-accent-foreground text-[10px] font-bold">
+                  {flag}
+                </span>
+              </div>
+            )}
 
             {fileAnnotationBase ? (
               <FileAnnotationContext.Provider

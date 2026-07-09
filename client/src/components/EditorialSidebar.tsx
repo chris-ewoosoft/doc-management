@@ -2,6 +2,7 @@ import { FileText, Home, Settings, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { Input } from "@/components/ui/input";
+import { trpc } from "@/lib/trpc";
 
 interface EditorialSidebarProps {
   isOpen?: boolean;
@@ -10,19 +11,12 @@ interface EditorialSidebarProps {
 
 export default function EditorialSidebar({ isOpen = true, onClose }: EditorialSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: groups = [] } = trpc.groups.list.useQuery();
 
   const navItems = [
     { icon: Home, label: "Dashboard", href: "/documents" },
     { icon: FileText, label: "All Documents", href: "/documents" },
     { icon: Plus, label: "New Document", href: "/documents/new" },
-  ];
-
-  const categories = [
-    { label: "Backend", href: "/documents?category=Backend" },
-    { label: "Frontend", href: "/documents?category=Frontend" },
-    { label: "DevOps", href: "/documents?category=DevOps" },
-    { label: "Design", href: "/documents?category=Design" },
-    { label: "Product", href: "/documents?category=Product" },
   ];
 
   const linkClassName =
@@ -76,17 +70,17 @@ export default function EditorialSidebar({ isOpen = true, onClose }: EditorialSi
 
           <nav className="space-y-2">
             <p className="text-xs font-semibold text-sidebar-muted-foreground tracking-widest px-3 py-2 uppercase">
-              Categories
+              Groups
             </p>
-            {categories.map((category) => (
+            {groups.map((group) => (
               <Link
-                key={category.href}
-                href={category.href}
+                key={group.id}
+                href={`/documents?group=${group.id}`}
                 className={categoryLinkClassName}
                 onClick={onClose}
               >
                 <span className="w-2 h-2 rounded-full bg-sidebar-primary" />
-                {category.label}
+                {group.name}
               </Link>
             ))}
           </nav>

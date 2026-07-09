@@ -42,7 +42,7 @@ function localesFromDocument(
 function buildSnapshot(data: {
   title: string;
   description: string;
-  projectCategory: string;
+  groupId: number | null;
   locales: LocaleContent;
 }) {
   return JSON.stringify(data);
@@ -68,15 +68,19 @@ export default function DocumentEditor() {
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
   const [locales, setLocales] = useState<LocaleContent>(emptyLocaleContent());
-  const [projectCategory, setProjectCategory] = useState("Backend");
+  const [groupId, setGroupId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [activeCommentId, setActiveCommentId] = useState<number | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [activeFileNoteId, setActiveFileNoteId] = useState<number | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(false);
 
-  const documentId = isNew ? null : Number(params?.id);
+  const routeDocumentId = isNew ? null : Number(params?.id);
+  const [createdDocumentId, setCreatedDocumentId] = useState<number | null>(null);
+  const documentId = routeDocumentId ?? createdDocumentId;
+
+  const { data: groups = [] } = trpc.groups.list.useQuery();
 
   const { data: document, refetch: refetchDocument } = trpc.documents.getById.useQuery(
     { id: documentId! },
@@ -88,7 +92,7 @@ export default function DocumentEditor() {
     { enabled: !!documentId }
   );
 
-  const { data: revisions = [] } = trpc.documents.getRevisions.useQuery(
+  const { data: revisions = [], refetch: refetchRevisions } = trpc.documents.getRevisions.useQuery(
     { documentId: documentId! },
     { enabled: !!documentId }
   );
@@ -119,7 +123,9 @@ export default function DocumentEditor() {
     onSuccess: () => refetchFileNotes(),
   });
 
-  const createDoc = trpc.documents.create.useMutation({
+  const createDoc = trpc.documents.create.useMutation();
+
+  const createDocAndNavigate = trpc.documents.create.useMutation({
     onSuccess: (data) => {
       navigate(`/documents/${data.id}`);
     },
@@ -130,6 +136,7 @@ export default function DocumentEditor() {
       if (documentId) {
         await refetchDocument();
         refetchComments();
+        refetchRevisions();
       }
     },
   });
@@ -153,10 +160,10 @@ export default function DocumentEditor() {
       buildSnapshot({
         title,
         description,
-        projectCategory,
+        groupId,
         locales,
       }),
-    [title, description, projectCategory, locales]
+    [title, description, groupId, locales]
   );
 
   const isDirty = savedSnapshot !== null && currentSnapshot !== savedSnapshot;
@@ -170,16 +177,22 @@ export default function DocumentEditor() {
     setDescription(document.description || "");
     setContent(document.content);
     setLocales(loadedLocales);
-    setProjectCategory(document.projectCategory);
+    setGroupId(document.groupId ?? groups.find((g) => g.name === document.projectCategory)?.id ?? null);
     setSavedSnapshot(
       buildSnapshot({
         title: document.title,
         description: document.description || "",
-        projectCategory: document.projectCategory,
+        groupId: document.groupId ?? null,
         locales: loadedLocales,
       })
     );
-  }, [document]);
+  }, [document, groups]);
+
+  useEffect(() => {
+    if (!document && groupId === null && groups.length > 0) {
+      setGroupId(groups[0].id);
+    }
+  }, [document, groups, groupId]);
 
   const handleLocaleChange = (
     locale: DocumentLocaleCode,
@@ -213,11 +226,11 @@ export default function DocumentEditor() {
       const primaryContent = locales.en.content || content;
 
       if (isNew) {
-        await createDoc.mutateAsync({
+        await createDocAndNavigate.mutateAsync({
           title: primaryTitle,
           description,
           content: primaryContent,
-          projectCategory,
+          groupId: groupId ?? undefined,
           locales: localesPayload,
         });
       } else if (documentId) {
@@ -226,7 +239,7 @@ export default function DocumentEditor() {
           title: primaryTitle,
           description,
           content: primaryContent,
-          projectCategory,
+          groupId: groupId ?? undefined,
           locales: localesPayload,
         });
         setSavedSnapshot(currentSnapshot);
@@ -243,11 +256,13 @@ export default function DocumentEditor() {
       title: locales.en.title || title || "Untitled",
       description,
       content: locales.en.content || content || "<p></p>",
-      projectCategory,
+      groupId: groupId ?? undefined,
       locales: localesPayload,
     });
+    setCreatedDocumentId(result.id);
+    window.history.replaceState(null, "", `/documents/${result.id}`);
     return result.id as number;
-  }, [documentId, createDoc, locales, title, description, content, projectCategory, localesPayload]);
+  }, [documentId, createDoc, locales, title, description, content, groupId, localesPayload]);
 
   const uploadFile = async (file: File): Promise<FileUploadResult> => {
     const docId = await ensureDocumentId();
@@ -328,11 +343,11 @@ export default function DocumentEditor() {
     [documentId, activeFileNoteId, ensureDocumentId, createFileNote, updateFileNote]
   );
 
-  const categories = ["Backend", "Frontend", "DevOps", "Design", "Product"];
+  const categories = groups;
 
   return (
     <EditorialLayout fullScreen>
-      <div className="editorial-layout-full">
+      <div className={`editorial-layout-full ${chromeHidden ? "editorial-layout-focus" : ""}`}>
         <div className="flex items-center justify-between gap-3 shrink-0 pb-2 border-b border-border">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="sm" onClick={() => navigate("/documents")} className="gap-1 shrink-0">
@@ -348,8 +363,8 @@ export default function DocumentEditor() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={() => setShowDetails((v) => !v)}>
-              {showDetails ? "Hide details" : "Details"}
+            <Button variant="outline" size="sm" onClick={() => setChromeHidden((v) => !v)}>
+              {chromeHidden ? "Show details" : "Hide details"}
             </Button>
             <Button
               onClick={handleSave}
@@ -368,7 +383,7 @@ export default function DocumentEditor() {
           </div>
         </div>
 
-        {showDetails && (
+        {!chromeHidden && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-3 shrink-0 border-b border-border">
             <Textarea
               value={description}
@@ -377,39 +392,48 @@ export default function DocumentEditor() {
               className="min-h-16 text-sm"
             />
             <select
-              value={projectCategory}
-              onChange={(e) => setProjectCategory(e.target.value)}
+              value={groupId ?? ""}
+              onChange={(e) => setGroupId(Number(e.target.value) || null)}
               className="h-9 px-3 border border-border rounded-sm bg-background text-foreground text-sm"
             >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              {categories.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
                 </option>
               ))}
             </select>
           </div>
         )}
 
-        <Tabs defaultValue="editor" className="flex flex-col flex-1 min-h-0 gap-2 pt-2">
-          <TabsList className="grid w-full max-w-lg grid-cols-3 shrink-0 h-9">
-            <TabsTrigger value="editor" className="text-xs">
-              Editor
-            </TabsTrigger>
-            <TabsTrigger value="comments" className="gap-1 text-xs">
-              <MessageSquare className="w-3.5 h-3.5" />
-              Comments ({comments.length})
-            </TabsTrigger>
-            <TabsTrigger value="history" className="gap-1 text-xs">
-              <Clock className="w-3.5 h-3.5" />
-              History ({revisions.length})
-            </TabsTrigger>
-          </TabsList>
+        <Tabs
+          defaultValue="editor"
+          value={chromeHidden ? "editor" : undefined}
+          className={`flex flex-col flex-1 min-h-0 ${chromeHidden ? "gap-0 pt-0" : "gap-2 pt-2"}`}
+        >
+          {!chromeHidden && (
+            <TabsList className="grid w-full max-w-lg grid-cols-3 shrink-0 h-9">
+              <TabsTrigger value="editor" className="text-xs">
+                Editor
+              </TabsTrigger>
+              <TabsTrigger value="comments" className="gap-1 text-xs">
+                <MessageSquare className="w-3.5 h-3.5" />
+                Comments ({comments.length})
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-1 text-xs">
+                <Clock className="w-3.5 h-3.5" />
+                History ({revisions.length})
+              </TabsTrigger>
+            </TabsList>
+          )}
 
           <TabsContent value="editor" className="flex-1 min-h-0 mt-0 flex flex-col data-[state=inactive]:hidden">
-            <p className="text-xs text-muted-foreground mb-2 shrink-0">
-              Embed PDF/PPT with paperclip. Use &quot;Add note&quot; on embedded files to annotate by position.
-            </p>
+            {!chromeHidden && (
+              <p className="text-xs text-muted-foreground mb-2 shrink-0">
+                Embed PDF/PPT with paperclip. Use &quot;Add note&quot; on embedded files to annotate by position.
+              </p>
+            )}
             <MultilingualEditor
+              compact={chromeHidden}
               locales={locales}
               onLocaleChange={handleLocaleChange}
               onImageUpload={handleImageUpload}
@@ -460,10 +484,30 @@ export default function DocumentEditor() {
           <TabsContent value="history" className="flex-1 min-h-0 overflow-auto mt-0 data-[state=inactive]:hidden">
               {revisions.length > 0 ? (
                 <div className="space-y-4">
-                  {revisions.map((revision: { id: number; changeDescription?: string | null }, index: number) => (
+                  {revisions.map(
+                    (
+                      revision: {
+                        id: number;
+                        changeDescription?: string | null;
+                        createdAt: Date;
+                        changedByName?: string | null;
+                        changedByEmail?: string | null;
+                      },
+                      index: number
+                    ) => (
                     <div key={revision.id} className="editorial-card">
                       <p className="font-semibold text-sm">Version {revisions.length - index}</p>
-                      <p className="text-xs editorial-meta">{revision.changeDescription}</p>
+                      <p className="text-xs editorial-meta">
+                        {revision.changeDescription || "Updated"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {revision.changedByName || revision.changedByEmail || "Unknown user"}
+                        {revision.changedByEmail && revision.changedByName
+                          ? ` (${revision.changedByEmail})`
+                          : ""}
+                        {" · "}
+                        {new Date(revision.createdAt).toLocaleString()}
+                      </p>
                     </div>
                   ))}
                 </div>

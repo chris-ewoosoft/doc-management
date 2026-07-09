@@ -29,7 +29,12 @@ export default function FileNotesList({
 
       {activeNote && onDismiss && (
         <div className="embedded-file-notes-detail">
-          <FileNotePopover note={activeNote} pageLabel={pageLabel} onClose={onDismiss} />
+          <FileNotePopover
+            note={activeNote}
+            pageLabel={pageLabel}
+            onClose={onDismiss}
+            onUpdate={(content) => onUpdateNote(activeNote.id, content)}
+          />
         </div>
       )}
 

@@ -41,6 +41,9 @@ export const FootnoteReference = Node.create({
         title: number ? `Footnote ${number}` : "Footnote",
         contenteditable: "false",
       }),
+      number
+        ? ["span", { class: "footnote-ref-number" }, String(number)]
+        : ["span", { class: "footnote-ref-number" }, "?"],
       ["span", { class: "footnote-notebook-icon", "aria-hidden": "true" }],
     ];
   },

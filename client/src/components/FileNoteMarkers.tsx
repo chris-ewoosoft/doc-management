@@ -7,6 +7,7 @@ interface FileNoteMarkersProps {
   pageLabel?: string;
   onNoteClick: (id: number) => void;
   onDismiss?: () => void;
+  onUpdateNote?: (noteId: number, content: string) => Promise<void>;
   pending?: { xPercent: number; yPercent: number; noteNumber?: number } | null;
 }
 
@@ -16,6 +17,7 @@ export default function FileNoteMarkers({
   pageLabel = "Page",
   onNoteClick,
   onDismiss,
+  onUpdateNote,
   pending,
 }: FileNoteMarkersProps) {
   return (
@@ -33,11 +35,17 @@ export default function FileNoteMarkers({
               e.stopPropagation();
               onNoteClick(note.id);
             }}
+            onContextMenu={(e) => e.stopPropagation()}
           >
             <span className="file-note-number file-note-number--marker">{note.noteNumber}</span>
             <span className="footnote-notebook-icon" aria-hidden />
             {isActive && onDismiss && (
-              <FileNotePopover note={note} pageLabel={pageLabel} onClose={onDismiss} />
+              <FileNotePopover
+                note={note}
+                pageLabel={pageLabel}
+                onClose={onDismiss}
+                onUpdate={onUpdateNote ? (content) => onUpdateNote(note.id, content) : undefined}
+              />
             )}
           </button>
         );

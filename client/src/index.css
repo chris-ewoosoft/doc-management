@@ -328,6 +328,10 @@
     @apply w-[95%] h-[95%] flex flex-col min-h-0 px-3 pb-3 overflow-hidden;
   }
 
+  .editorial-layout-full.editorial-layout-focus {
+    @apply w-[98%] h-[98%] px-2 pb-2;
+  }
+
   .editor-scroll-area {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -340,6 +344,10 @@
   .editor-scroll-area::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 4px;
+  }
+
+  .editor-locale-bar {
+    @apply flex flex-wrap items-center gap-2 px-1 py-1 border-b border-border bg-secondary/30 shrink-0;
   }
 
   /* Subtle accent for highlights */

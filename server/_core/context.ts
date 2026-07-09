@@ -15,6 +15,7 @@ const DEV_USER: User = {
   openId: ENV.ownerOpenId || "local-dev-owner",
   name: "Dev User",
   email: "dev@localhost",
+  passwordHash: null,
   loginMethod: "dev",
   role: "admin",
   createdAt: new Date(),
@@ -49,7 +50,7 @@ export async function createContext(
     user = null;
   }
 
-  if (!user && !ENV.isProduction) {
+  if (!user && !ENV.isProduction && ENV.devAutoLogin) {
     user = await getDevUser();
   }
 

@@ -143,10 +143,27 @@
 .ProseMirror sup.footnote-ref {
   display: inline-flex;
   align-items: center;
+  gap: 2px;
   vertical-align: baseline;
   cursor: pointer;
   margin: 0 1px;
   line-height: 1;
+}
+
+.footnote-ref-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 9999px;
+  background: #facc15;
+  color: #713f12;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  border: 1px solid #ca8a04;
 }
 
 .ProseMirror .footnote-notebook-icon {
@@ -417,14 +434,15 @@
 }
 
 .file-note-number--marker {
-  position: absolute;
-  top: -6px;
-  right: -8px;
+  position: relative;
+  top: auto;
+  right: auto;
   min-width: 14px;
   height: 14px;
   font-size: 9px;
   border: 1px solid #ca8a04;
   z-index: 1;
+  margin-right: -4px;
 }
 
 .pdf-scroll-container {
@@ -435,6 +453,16 @@
   scrollbar-width: thin;
 }
 
+.editorial-layout-focus .pdf-scroll-container {
+  max-height: 82vh;
+  min-height: 65vh;
+}
+
+.editorial-layout-focus .embedded-file-frame {
+  min-height: 82vh;
+  height: 82vh;
+}
+
 .pdf-page-surface {
   position: relative;
   margin: 0 auto;
@@ -442,27 +470,50 @@
   min-width: 100%;
   background: #fff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
-}
-
-.pdf-page-surface.annotate-mode {
-  cursor: crosshair;
+  cursor: context-menu;
 }
 
 .pdf-page-canvas {
   display: block;
   vertical-align: top;
+  max-width: 100%;
+}
+
+.pdf-page-canvas--passive {
+  pointer-events: none;
+}
+
+.pdf-annotate-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: transparent;
+  cursor: context-menu;
+}
+
+.pdf-annotate-overlay--passive {
+  pointer-events: none;
+  cursor: default;
+}
+
+.pdf-annotate-overlay--passive .file-note-marker {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .file-note-marker {
   position: absolute;
   transform: translate(-50%, -100%);
-  z-index: 2;
+  z-index: 5;
   padding: 0;
   border: none;
   background: transparent;
   cursor: pointer;
   line-height: 0;
   pointer-events: auto;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0;
 }
 
 .file-note-marker.active {

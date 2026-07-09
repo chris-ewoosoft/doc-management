@@ -29,6 +29,13 @@
       "when": 1783579203974,
       "tag": "0003_fine_albert_cleary",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783584000000,
+      "tag": "0004_auth_groups_history",
+      "breakpoints": true
     }
   ]
 }

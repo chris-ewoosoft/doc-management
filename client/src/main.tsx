@@ -5,7 +5,6 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-import { startLogin } from "./const";
 import "./index.css";
 
 const analyticsEndpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT;
@@ -30,7 +29,7 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
-  startLogin();
+  window.location.href = "/login";
 };
 
 queryClient.getQueryCache().subscribe(event => {

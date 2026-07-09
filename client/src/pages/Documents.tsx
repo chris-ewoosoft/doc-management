@@ -10,49 +10,45 @@ import EditorialLayout from "@/components/EditorialLayout";
 export default function Documents() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>();
 
-  // Get query params
   const params = new URLSearchParams(window.location.search);
-  const categoryParam = params.get("category");
+  const groupParam = params.get("group");
+
+  const { data: groups = [] } = trpc.groups.list.useQuery();
 
   useEffect(() => {
-    if (categoryParam) {
-      setSelectedCategory(categoryParam);
+    if (groupParam) {
+      const id = Number(groupParam);
+      if (!Number.isNaN(id)) setSelectedGroupId(id);
     }
-  }, [categoryParam]);
+  }, [groupParam]);
 
-  // Fetch documents
   const { data: documents = [], isLoading, error, refetch } = trpc.documents.list.useQuery({
-    projectCategory: selectedCategory,
+    groupId: selectedGroupId,
     limit: 100,
   });
 
-  // Delete mutation
   const deleteDoc = trpc.documents.delete.useMutation({
     onSuccess: () => {
       refetch();
     },
   });
 
-  // Filter by search query
   const filteredDocuments = useMemo(() => {
     if (!searchQuery) return documents;
 
     const query = searchQuery.toLowerCase();
     return documents.filter(
-      (doc: any) =>
+      (doc: { title: string; description?: string | null }) =>
         doc.title.toLowerCase().includes(query) ||
         doc.description?.toLowerCase().includes(query)
     );
   }, [documents, searchQuery]);
 
-  const categories = ["Backend", "Frontend", "DevOps", "Design", "Product"];
-
   return (
     <EditorialLayout>
       <div className="space-y-8">
-        {/* Header */}
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -61,20 +57,15 @@ export default function Documents() {
                 Manage and review software documentation
               </p>
             </div>
-            <Button
-              onClick={() => navigate("/documents/new")}
-              className="gap-2"
-            >
+            <Button onClick={() => navigate("/documents/new")} className="gap-2">
               <Plus className="w-4 h-4" />
               New Document
             </Button>
           </div>
 
-          {/* Divider */}
           <div className="editorial-divider" />
         </div>
 
-        {/* Search and filters */}
         <div className="space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
@@ -87,35 +78,33 @@ export default function Documents() {
             />
           </div>
 
-          {/* Category filter */}
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setSelectedCategory(undefined)}
+              onClick={() => setSelectedGroupId(undefined)}
               className={`px-3 py-1 rounded-sm text-sm font-medium transition-colors ${
-                !selectedCategory
+                !selectedGroupId
                   ? "bg-accent text-accent-foreground"
                   : "bg-secondary text-foreground hover:bg-secondary/80"
               }`}
             >
               All
             </button>
-            {categories.map((cat) => (
+            {groups.map((group) => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                key={group.id}
+                onClick={() => setSelectedGroupId(group.id)}
                 className={`px-3 py-1 rounded-sm text-sm font-medium transition-colors ${
-                  selectedCategory === cat
+                  selectedGroupId === group.id
                     ? "bg-accent text-accent-foreground"
                     : "bg-secondary text-foreground hover:bg-secondary/80"
                 }`}
               >
-                {cat}
+                {group.name}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Document list */}
         {error ? (
           <div className="editorial-card text-center py-12">
             <p className="text-destructive mb-2">Failed to load documents</p>

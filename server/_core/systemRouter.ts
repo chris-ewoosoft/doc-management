@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { countUsers } from "../db";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
 
@@ -12,6 +13,8 @@ export const systemRouter = router({
     .query(() => ({
       ok: true,
     })),
+
+  userCount: publicProcedure.query(async () => countUsers()),
 
   notifyOwner: adminProcedure
     .input(

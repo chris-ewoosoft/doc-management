@@ -13,56 +13,53 @@ export default function EditorialHeader({ onMenuClick }: EditorialHeaderProps) {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    await logout();
+    try {
+      await logout();
+      window.location.replace("/login");
+    } catch {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
     <header className="bg-background border-b border-border sticky top-0 z-40">
-      <div className="flex items-center justify-between px-6 py-4">
-        {/* Logo and title */}
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between px-4 py-1 min-h-9">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={onMenuClick}
-            className="lg:hidden p-2 hover:bg-secondary rounded-sm transition-colors"
+            className="lg:hidden p-1 hover:bg-secondary rounded-sm transition-colors"
             aria-label="Toggle menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </button>
 
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-              Documents
-            </h1>
-            <p className="text-xs text-muted-foreground tracking-wide">Editorial Management System</p>
+          <h1
+            className="text-lg font-bold text-foreground leading-none"
+            style={{ fontFamily: "var(--font-serif)" }}
+          >
+            Documents
+          </h1>
+        </div>
+
+        {user && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="hidden sm:inline text-xs font-medium text-foreground leading-none">
+              {user.name || user.email}
+            </span>
+            <span className="hidden sm:inline text-border">|</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="gap-1.5 h-7 px-2 text-xs"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </Button>
           </div>
-        </div>
-
-        {/* User menu */}
-        <div className="flex items-center gap-4">
-          {user && (
-            <>
-              <div className="hidden sm:flex flex-col items-end">
-                <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
-              </div>
-              <div className="w-px h-6 bg-border" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
-            </>
-          )}
-        </div>
+        )}
       </div>
-
-      {/* Subtle divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
     </header>
   );
 }
