@@ -470,7 +470,23 @@
   min-width: 100%;
   background: #fff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
-  cursor: context-menu;
+}
+
+.pdf-page-surface--error {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-page-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  pointer-events: none;
 }
 
 .pdf-page-canvas {
@@ -488,7 +504,6 @@
   inset: 0;
   z-index: 4;
   background: transparent;
-  cursor: context-menu;
 }
 
 .pdf-annotate-overlay--passive {
@@ -508,16 +523,32 @@
   padding: 0;
   border: none;
   background: transparent;
-  cursor: pointer;
+  cursor: grab;
   line-height: 0;
   pointer-events: auto;
   display: inline-flex;
   align-items: flex-end;
   gap: 0;
+  touch-action: none;
+}
+
+.file-note-marker.dragging {
+  cursor: grabbing;
+  z-index: 6;
+}
+
+.file-note-marker.pending {
+  pointer-events: auto;
+  cursor: default;
+}
+
+.file-note-marker.pending .file-note-number,
+.file-note-marker.pending .footnote-notebook-icon {
+  animation: file-note-pulse 1.2s ease-in-out infinite;
 }
 
 .file-note-marker.active {
-  z-index: 5;
+  z-index: 6;
 }
 
 .file-note-popover {
@@ -536,6 +567,8 @@
   text-align: left;
   line-height: 1.4;
   pointer-events: auto;
+  opacity: 1;
+  animation: none;
 }
 
 .file-note-popover-header {
@@ -543,6 +576,37 @@
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 0.35rem;
+}
+
+.file-note-popover-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.file-note-popover-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--background);
+  color: var(--destructive);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.file-note-popover-delete:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+
+.file-note-popover-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .file-note-popover-meta {
@@ -560,6 +624,7 @@
   color: var(--muted-foreground);
   cursor: pointer;
   border-radius: 2px;
+  margin-left: auto;
 }
 
 .file-note-popover-close:hover {
@@ -607,10 +672,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
-.file-note-marker.pending {
-  pointer-events: none;
-  animation: file-note-pulse 1s ease-in-out infinite;
-}
 
 @keyframes file-note-pulse {
   0%,

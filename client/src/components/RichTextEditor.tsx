@@ -27,6 +27,7 @@ import { CommentHighlight } from "./CommentHighlight";
 import { FootnoteReference } from "./FootnoteReference";
 import { EmbeddedFile } from "./EmbeddedFile";
 import type { EditorComment, EditorNote } from "@/lib/documentLocales";
+import { randomUUID } from "@/polyfills/crypto-random-uuid";
 import { toast } from "sonner";
 import "./RichTextEditor.css";
 
@@ -250,7 +251,7 @@ export default function RichTextEditor({
             fileName: result.fileName,
             mimeType: result.mimeType,
             fileType: fileTypeFromResult(result.mimeType, result.fileName),
-            embeddedId: crypto.randomUUID(),
+            embeddedId: randomUUID(),
           },
         })
         .run();

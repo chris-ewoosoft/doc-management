@@ -518,12 +518,16 @@ export async function getDocumentNotes(documentId: number, locale?: "en" | "vi" 
   return db.select().from(documentNotes).where(eq(documentNotes.documentId, documentId));
 }
 
-export async function createDocumentNote(data: InsertDocumentNote) {
+export async function createDocumentNote(
+  data: Omit<InsertDocumentNote, "noteNumber"> & { noteNumber?: number }
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   const existing = await getDocumentNotes(data.documentId, data.locale);
-  const noteNumber = data.noteNumber ?? existing.length + 1;
+  const noteNumber =
+    data.noteNumber ??
+    (existing.length === 0 ? 1 : Math.max(...existing.map((n) => n.noteNumber)) + 1);
 
   const [created] = await db
     .insert(documentNotes)
@@ -578,7 +582,9 @@ export async function getDocumentFileNotes(
     .where(eq(documentFileNotes.documentId, documentId));
 }
 
-export async function createDocumentFileNote(data: InsertDocumentFileNote) {
+export async function createDocumentFileNote(
+  data: Omit<InsertDocumentFileNote, "noteNumber"> & { noteNumber?: number }
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -592,7 +598,9 @@ export async function createDocumentFileNote(data: InsertDocumentFileNote) {
       )
     );
 
-  const noteNumber = data.noteNumber ?? existing.length + 1;
+  const noteNumber =
+    data.noteNumber ??
+    (existing.length === 0 ? 1 : Math.max(...existing.map((n) => n.noteNumber)) + 1);
 
   const [created] = await db
     .insert(documentFileNotes)
@@ -604,7 +612,7 @@ export async function createDocumentFileNote(data: InsertDocumentFileNote) {
 
 export async function updateDocumentFileNote(
   id: number,
-  data: Partial<Pick<InsertDocumentFileNote, "content">>
+  data: Partial<Pick<InsertDocumentFileNote, "content" | "xPercent" | "yPercent" | "pageNumber">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

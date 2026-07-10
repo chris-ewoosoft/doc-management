@@ -1,3 +1,7 @@
+import { installCryptoRandomUUIDPolyfill } from "./polyfills/crypto-random-uuid";
+
+installCryptoRandomUUIDPolyfill();
+
 import { trpc } from "@/lib/trpc";
 import { COOKIE_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

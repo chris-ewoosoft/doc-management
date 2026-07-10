@@ -3,9 +3,8 @@ import * as pdfjs from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import type { EditorFileNote } from "@/lib/documentLocales";
-import FileNoteMarkers from "./FileNoteMarkers";
+import { getNextNoteNumber, type EditorFileNote } from "@/lib/documentLocales";
+import FileNoteMarkers, { type NotePosition } from "./FileNoteMarkers";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -24,6 +23,12 @@ interface PdfPageViewerProps {
     content: string;
   }) => Promise<void>;
   onUpdateNote: (noteId: number, content: string) => Promise<void>;
+  onDeleteNote: (noteId: number) => Promise<void>;
+  onMoveNote: (noteId: number, position: NotePosition) => Promise<void>;
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, value));
 }
 
 function positionFromEvent(event: React.MouseEvent<HTMLElement>, pageNumber: number) {
@@ -45,6 +50,8 @@ export default function PdfPageViewer({
   onDismiss,
   onAddNote,
   onUpdateNote,
+  onDeleteNote,
+  onMoveNote,
 }: PdfPageViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -55,17 +62,25 @@ export default function PdfPageViewer({
   const [pageCount, setPageCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<{
     pageNumber: number;
     xPercent: number;
     yPercent: number;
   } | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   const fileNotes = notes.filter((n) => n.embeddedId === embeddedId);
   const pageNotes = fileNotes.filter((n) => n.pageNumber === pageNumber);
-  const nextNoteNumber = fileNotes.length + 1;
+  const nextNoteNumber = getNextNoteNumber(fileNotes);
+
+  const resolvePosition = useCallback((clientX: number, clientY: number): NotePosition => {
+    const surface = surfaceRef.current;
+    if (!surface) return { xPercent: 0, yPercent: 0 };
+    const rect = surface.getBoundingClientRect();
+    return {
+      xPercent: clampPercent(((clientX - rect.left) / rect.width) * 100),
+      yPercent: clampPercent(((clientY - rect.top) / rect.height) * 100),
+    };
+  }, []);
 
   const renderPage = useCallback(async (pdf: pdfjs.PDFDocumentProxy, pageNum: number) => {
     const canvas = canvasRef.current;
@@ -156,31 +171,25 @@ export default function PdfPageViewer({
     if (pending) return;
     onDismiss?.();
     setPending(positionFromEvent(event, pageNumber));
-    setDraft("");
   };
 
-  const handleSurfaceClick = () => {
+  const handleSurfaceClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (pending) return;
+    if ((event.target as HTMLElement).closest(".file-note-marker, .file-note-popover")) return;
     onDismiss?.();
   };
 
-  const submitNote = async () => {
-    if (!pending || !draft.trim()) return;
-    setIsSaving(true);
-    try {
-      await onAddNote({
-        pageNumber: pending.pageNumber,
-        xPercent: pending.xPercent,
-        yPercent: pending.yPercent,
-        content: draft.trim(),
-      });
-      setPending(null);
-      setDraft("");
-      const pdf = pdfRef.current;
-      if (pdf) await renderPage(pdf, pageNumber);
-    } finally {
-      setIsSaving(false);
-    }
+  const submitPendingNote = async (content: string) => {
+    if (!pending) return;
+    await onAddNote({
+      pageNumber: pending.pageNumber,
+      xPercent: pending.xPercent,
+      yPercent: pending.yPercent,
+      content,
+    });
+    setPending(null);
+    const pdf = pdfRef.current;
+    if (pdf) await renderPage(pdf, pageNumber);
   };
 
   if (loading) {
@@ -194,8 +203,40 @@ export default function PdfPageViewer({
 
   if (error) {
     return (
-      <div className="embedded-file-frame flex items-center justify-center text-destructive text-sm p-4 text-center">
-        {error}
+      <div className="embedded-file-viewer">
+        <div className="embedded-file-toolbar">
+          <span className="text-[11px] text-muted-foreground">
+            Left-drag to move · Right-click to add or edit note
+          </span>
+        </div>
+        <div ref={scrollRef} className="pdf-scroll-container">
+          <div
+            ref={surfaceRef}
+            className="pdf-page-surface pdf-page-surface--error"
+            onContextMenu={handleContextMenu}
+            onClick={handleSurfaceClick}
+          >
+            <p className="pdf-page-error text-destructive text-sm p-4 text-center">{error}</p>
+            <FileNoteMarkers
+              notes={pageNotes}
+              activeNoteId={activeNoteId}
+              pageLabel="Page"
+              resolvePosition={resolvePosition}
+              onNoteClick={onNoteClick}
+              onDismiss={onDismiss}
+              onUpdateNote={onUpdateNote}
+              onDeleteNote={onDeleteNote}
+              onMoveNote={onMoveNote}
+              pending={
+                pending
+                  ? { ...pending, noteNumber: nextNoteNumber, pageNumber: pending.pageNumber }
+                  : null
+              }
+              onSubmitPending={submitPendingNote}
+              onCancelPending={() => setPending(null)}
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -229,7 +270,7 @@ export default function PdfPageViewer({
           </Button>
         </div>
         <span className="text-[11px] text-muted-foreground">
-          Right-click to add note · Left-click marker to view/edit
+          Left-drag to move · Right-click to add or edit note
         </span>
       </div>
 
@@ -245,43 +286,22 @@ export default function PdfPageViewer({
             notes={pageNotes}
             activeNoteId={activeNoteId}
             pageLabel="Page"
+            resolvePosition={resolvePosition}
             onNoteClick={onNoteClick}
             onDismiss={onDismiss}
             onUpdateNote={onUpdateNote}
-            pending={pending ? { ...pending, noteNumber: nextNoteNumber } : null}
+            onDeleteNote={onDeleteNote}
+            onMoveNote={onMoveNote}
+            pending={
+              pending
+                ? { ...pending, noteNumber: nextNoteNumber, pageNumber: pending.pageNumber }
+                : null
+            }
+            onSubmitPending={submitPendingNote}
+            onCancelPending={() => setPending(null)}
           />
         </div>
       </div>
-
-      {pending && (
-        <div className="embedded-file-note-form">
-          <p className="text-xs font-medium text-muted-foreground">
-            New note #{nextNoteNumber} on {fileName} — page {pending.pageNumber}
-          </p>
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Write note content..."
-            className="min-h-14 text-sm"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={submitNote} disabled={!draft.trim() || isSaving}>
-              {isSaving ? "Saving..." : "Add note"}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setPending(null);
-                setDraft("");
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

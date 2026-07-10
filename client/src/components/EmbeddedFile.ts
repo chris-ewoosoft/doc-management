@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+import { randomUUID } from "@/polyfills/crypto-random-uuid";
 import EmbeddedFileView from "./EmbeddedFileView";
 
 export const EmbeddedFile = Node.create({
@@ -28,7 +29,7 @@ export const EmbeddedFile = Node.create({
         parseHTML: (element) => element.getAttribute("data-file-type") || "pdf",
       },
       embeddedId: {
-        default: () => (typeof crypto !== "undefined" ? crypto.randomUUID() : `emb-${Date.now()}`),
+        default: () => randomUUID(),
         parseHTML: (element) => element.getAttribute("data-embedded-id"),
       },
     };

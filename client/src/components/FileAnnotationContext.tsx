@@ -22,6 +22,8 @@ export interface FileAnnotationBase {
     input: FileNoteInput
   ) => Promise<{ id: number; noteNumber: number }>;
   onUpdateFileNote: (noteId: number, content: string) => Promise<void>;
+  onDeleteFileNote: (noteId: number) => Promise<void>;
+  onMoveFileNote: (noteId: number, position: { xPercent: number; yPercent: number }) => Promise<void>;
 }
 
 export interface FileAnnotationContextValue extends Omit<FileAnnotationBase, "onAddFileNote"> {

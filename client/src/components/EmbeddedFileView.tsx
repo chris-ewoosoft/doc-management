@@ -126,6 +126,8 @@ export default function EmbeddedFileView({ node, selected }: NodeViewProps) {
           onDismiss={dismissNote}
           onAddNote={handleAddNote}
           onUpdateNote={annotation.onUpdateFileNote}
+          onDeleteNote={annotation.onDeleteFileNote}
+          onMoveNote={annotation.onMoveFileNote}
         />
       ) : annotation && !isPdf ? (
         <FileOverlayAnnotator
@@ -138,6 +140,8 @@ export default function EmbeddedFileView({ node, selected }: NodeViewProps) {
           onDismiss={dismissNote}
           onAddNote={handleAddNote}
           onUpdateNote={annotation.onUpdateFileNote}
+          onDeleteNote={annotation.onDeleteFileNote}
+          onMoveNote={annotation.onMoveFileNote}
         >
           {renderPptViewer}
         </FileOverlayAnnotator>

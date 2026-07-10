@@ -403,14 +403,12 @@ export const documentsRouter = router({
       const doc = await getDocumentById(input.documentId);
       if (!doc) throw new Error("Document not found");
 
-      const existing = await getDocumentNotes(input.documentId, input.locale);
       const note = await createDocumentNote({
         documentId: input.documentId,
         locale: input.locale,
         authorId: ctx.user.id,
         content: input.content,
         position: input.position,
-        noteNumber: existing.length + 1,
       });
 
       return { id: note.id, noteNumber: note.noteNumber };
@@ -465,9 +463,6 @@ export const documentsRouter = router({
       const doc = await getDocumentById(input.documentId);
       if (!doc) throw new Error("Document not found");
 
-      const existing = await getDocumentFileNotes(input.documentId);
-      const fileNotes = existing.filter((n) => n.embeddedId === input.embeddedId);
-
       const note = await createDocumentFileNote({
         documentId: input.documentId,
         locale: input.locale,
@@ -480,7 +475,6 @@ export const documentsRouter = router({
         xPercent: input.xPercent,
         yPercent: input.yPercent,
         content: input.content,
-        noteNumber: fileNotes.length + 1,
       });
 
       return { id: note.id, noteNumber: note.noteNumber };
@@ -488,13 +482,26 @@ export const documentsRouter = router({
 
   updateFileNote: protectedProcedure
     .input(
-      z.object({
-        noteId: z.number(),
-        content: z.string().min(1),
-      })
+      z
+        .object({
+          noteId: z.number(),
+          content: z.string().min(1).optional(),
+          xPercent: z.number().min(0).max(100).optional(),
+          yPercent: z.number().min(0).max(100).optional(),
+          pageNumber: z.number().int().min(1).optional(),
+        })
+        .refine(
+          (data) =>
+            data.content !== undefined ||
+            data.xPercent !== undefined ||
+            data.yPercent !== undefined ||
+            data.pageNumber !== undefined,
+          { message: "At least one field to update is required" }
+        )
     )
     .mutation(async ({ input }) => {
-      await updateDocumentFileNote(input.noteId, { content: input.content });
+      const { noteId, ...updateData } = input;
+      await updateDocumentFileNote(noteId, updateData);
       return { success: true };
     }),
 

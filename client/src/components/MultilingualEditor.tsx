@@ -48,6 +48,37 @@ function setScrollRatio(element: HTMLDivElement, ratio: number) {
   element.scrollTop = ratio * max;
 }
 
+const VISIBLE_LOCALES_STORAGE_KEY = "editor-visible-locales";
+
+const DEFAULT_VISIBLE_LOCALES: Record<DocumentLocaleCode, boolean> = {
+  en: true,
+  vi: true,
+  ko: true,
+};
+
+function loadVisibleLocales(): Record<DocumentLocaleCode, boolean> {
+  try {
+    const raw = localStorage.getItem(VISIBLE_LOCALES_STORAGE_KEY);
+    if (!raw) return DEFAULT_VISIBLE_LOCALES;
+
+    const parsed = JSON.parse(raw) as Partial<Record<DocumentLocaleCode, boolean>>;
+    const next: Record<DocumentLocaleCode, boolean> = {
+      en: parsed.en ?? DEFAULT_VISIBLE_LOCALES.en,
+      vi: parsed.vi ?? DEFAULT_VISIBLE_LOCALES.vi,
+      ko: parsed.ko ?? DEFAULT_VISIBLE_LOCALES.ko,
+    };
+
+    if (!Object.values(next).some(Boolean)) return DEFAULT_VISIBLE_LOCALES;
+    return next;
+  } catch {
+    return DEFAULT_VISIBLE_LOCALES;
+  }
+}
+
+function saveVisibleLocales(value: Record<DocumentLocaleCode, boolean>) {
+  localStorage.setItem(VISIBLE_LOCALES_STORAGE_KEY, JSON.stringify(value));
+}
+
 export default function MultilingualEditor({
   locales,
   onLocaleChange,
@@ -66,11 +97,11 @@ export default function MultilingualEditor({
   fileNotes = [],
   compact = false,
 }: MultilingualEditorProps) {
-  const [visibleLocales, setVisibleLocales] = useState<Record<DocumentLocaleCode, boolean>>({
-    en: true,
-    vi: true,
-    ko: true,
-  });
+  const [visibleLocales, setVisibleLocales] = useState(loadVisibleLocales);
+
+  useEffect(() => {
+    saveVisibleLocales(visibleLocales);
+  }, [visibleLocales]);
 
   const activeLocales = useMemo(
     () => DOCUMENT_LOCALES.filter(({ code }) => visibleLocales[code]),

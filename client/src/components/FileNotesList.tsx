@@ -33,7 +33,7 @@ export default function FileNotesList({
             note={activeNote}
             pageLabel={pageLabel}
             onClose={onDismiss}
-            onUpdate={(content) => onUpdateNote(activeNote.id, content)}
+            onSave={(content) => onUpdateNote(activeNote.id, content)}
           />
         </div>
       )}

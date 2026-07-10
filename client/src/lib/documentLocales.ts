@@ -61,3 +61,8 @@ export interface EditorFileNote {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export function getNextNoteNumber(notes: { noteNumber: number }[]): number {
+  if (notes.length === 0) return 1;
+  return Math.max(...notes.map((n) => n.noteNumber)) + 1;
+}

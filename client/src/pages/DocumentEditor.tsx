@@ -123,6 +123,29 @@ export default function DocumentEditor() {
     onSuccess: () => refetchFileNotes(),
   });
 
+  const utils = trpc.useUtils();
+
+  const deleteFileNote = trpc.documents.deleteFileNote.useMutation({
+    onMutate: async ({ noteId }) => {
+      setActiveFileNoteId(null);
+      if (!documentId) return;
+      await utils.documents.getFileNotes.cancel({ documentId });
+      const previous = utils.documents.getFileNotes.getData({ documentId });
+      utils.documents.getFileNotes.setData({ documentId }, (old) =>
+        old ? old.filter((n) => n.id !== noteId) : []
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (documentId && context?.previous) {
+        utils.documents.getFileNotes.setData({ documentId }, context.previous);
+      }
+    },
+    onSettled: () => {
+      if (documentId) void refetchFileNotes();
+    },
+  });
+
   const createDoc = trpc.documents.create.useMutation();
 
   const createDocAndNavigate = trpc.documents.create.useMutation({
@@ -339,8 +362,14 @@ export default function DocumentEditor() {
       onUpdateFileNote: async (noteId, content) => {
         await updateFileNote.mutateAsync({ noteId, content });
       },
+      onDeleteFileNote: async (noteId) => {
+        await deleteFileNote.mutateAsync({ noteId });
+      },
+      onMoveFileNote: async (noteId, position) => {
+        await updateFileNote.mutateAsync({ noteId, ...position });
+      },
     }),
-    [documentId, activeFileNoteId, ensureDocumentId, createFileNote, updateFileNote]
+    [documentId, activeFileNoteId, ensureDocumentId, createFileNote, updateFileNote, deleteFileNote]
   );
 
   const categories = groups;
